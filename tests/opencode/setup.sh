@@ -31,15 +31,46 @@ cp -r "$REPO_ROOT/skills" "$SUPERPOWERS_DIR/"
 mkdir -p "$(dirname "$SUPERPOWERS_PLUGIN_FILE")"
 cp "$REPO_ROOT/.opencode/plugins/superpowers.js" "$SUPERPOWERS_PLUGIN_FILE"
 
+# Install the dedicated superpowers agent
+mkdir -p "$OPENCODE_CONFIG_DIR/agents"
+cp "$REPO_ROOT/.opencode/agents/superpowers.md" "$OPENCODE_CONFIG_DIR/agents/superpowers.md"
+
 # Register plugin via symlink (what OpenCode actually reads)
 mkdir -p "$OPENCODE_CONFIG_DIR/plugins"
 ln -sf "$SUPERPOWERS_PLUGIN_FILE" "$OPENCODE_CONFIG_DIR/plugins/superpowers.js"
+
+# Recommended OpenCode config for tests: explicit superpowers agent bootstrap
+# and skill access denied for the built-in agents.
+cat >"$OPENCODE_CONFIG_DIR/opencode.json" <<'EOF'
+{
+  "$schema": "https://opencode.ai/config.json",
+  "plugin": [
+    ["file://__PLUGIN_FILE__", {
+      "oc": {
+        "inject": {
+          "superpowers": true
+        }
+      }
+    }]
+  ],
+  "agent": {
+    "build": { "permission": { "skill": { "*": "deny" } } },
+    "plan": { "permission": { "skill": { "*": "deny" } } },
+    "general": { "permission": { "skill": { "*": "deny" } } },
+    "explore": { "permission": { "skill": { "*": "deny" } } },
+    "title": { "permission": { "skill": { "*": "deny" } } },
+    "summary": { "permission": { "skill": { "*": "deny" } } },
+    "compaction": { "permission": { "skill": { "*": "deny" } } }
+  }
+}
+EOF
+sed -i "s|__PLUGIN_FILE__|$SUPERPOWERS_PLUGIN_FILE|" "$OPENCODE_CONFIG_DIR/opencode.json"
 
 # Create test skills in different locations for testing
 
 # Personal test skill
 mkdir -p "$OPENCODE_CONFIG_DIR/skills/personal-test"
-cat > "$OPENCODE_CONFIG_DIR/skills/personal-test/SKILL.md" <<'EOF'
+cat >"$OPENCODE_CONFIG_DIR/skills/personal-test/SKILL.md" <<'EOF'
 ---
 name: personal-test
 description: Test personal skill for verification
@@ -53,7 +84,7 @@ EOF
 
 # Create a project directory for project-level skill tests
 mkdir -p "$TEST_HOME/test-project/.opencode/skills/project-test"
-cat > "$TEST_HOME/test-project/.opencode/skills/project-test/SKILL.md" <<'EOF'
+cat >"$TEST_HOME/test-project/.opencode/skills/project-test/SKILL.md" <<'EOF'
 ---
 name: project-test
 description: Test project skill for verification
@@ -75,9 +106,9 @@ echo "Test project at:      $TEST_HOME/test-project"
 
 # Helper function for cleanup (call from tests or trap)
 cleanup_test_env() {
-    if [ -n "${TEST_HOME:-}" ] && [ -d "$TEST_HOME" ]; then
-        rm -rf "$TEST_HOME"
-    fi
+	if [ -n "${TEST_HOME:-}" ] && [ -d "$TEST_HOME" ]; then
+		rm -rf "$TEST_HOME"
+	fi
 }
 
 # Export for use in tests

@@ -46,7 +46,14 @@ const normalizePath = (p, homeDir) => {
   return path.resolve(normalized);
 };
 
-export const SuperpowersPlugin = async ({ client, directory }) => {
+const shouldInjectForAgent = (options, agent) => {
+  if (!agent) return false;
+  const inject = options?.oc?.inject;
+  if (!inject || typeof inject !== 'object') return false;
+  return inject[agent] === true;
+};
+
+export const SuperpowersPlugin = async ({ client, directory }, options = {}) => {
   const homeDir = os.homedir();
   const superpowersSkillsDir = path.resolve(__dirname, '../../skills');
   const envConfigDir = normalizePath(process.env.OPENCODE_CONFIG_DIR, homeDir);
@@ -99,10 +106,13 @@ ${toolMapping}
     //   1. Token bloat from system messages repeated every turn (#750)
     //   2. Multiple system messages breaking Qwen and other models (#894)
     'experimental.chat.messages.transform': async (_input, output) => {
-      const bootstrap = getBootstrapContent();
-      if (!bootstrap || !output.messages.length) return;
       const firstUser = output.messages.find(m => m.info.role === 'user');
       if (!firstUser || !firstUser.parts.length) return;
+      if (!shouldInjectForAgent(options, firstUser.info.agent)) return;
+
+      const bootstrap = getBootstrapContent();
+      if (!bootstrap || !output.messages.length) return;
+
       // Only inject once
       if (firstUser.parts.some(p => p.type === 'text' && p.text.includes('EXTREMELY_IMPORTANT'))) return;
       const ref = firstUser.parts[0];
