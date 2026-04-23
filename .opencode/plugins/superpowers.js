@@ -1,16 +1,38 @@
 /**
  * Superpowers plugin for OpenCode.ai
  *
- * Injects superpowers bootstrap context via system prompt transform.
- * Auto-registers skills directory via config hook (no symlinks needed).
+ * Registers the superpowers agent and skills directory via config hook.
+ * Optionally injects bootstrap context into other configured agents.
  */
 
 import path from 'path';
 import fs from 'fs';
-import os from 'os';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const SUPERPOWERS_AGENT = 'superpowers';
+
+const stripQuotes = (value) => value.replace(/^['"]|['"]$/g, '');
+
+const parseScalar = (value) => {
+  if (value === 'true') return true;
+  if (value === 'false') return false;
+  if (/^-?\d+(\.\d+)?$/.test(value)) return Number(value);
+  return stripQuotes(value);
+};
+
+const isPlainObject = (value) => !!value && typeof value === 'object' && !Array.isArray(value);
+
+const mergeObjects = (base, override) => {
+  if (!isPlainObject(base)) return override === undefined ? base : override;
+  if (!isPlainObject(override)) return override === undefined ? base : override;
+
+  const merged = { ...base };
+  for (const [key, value] of Object.entries(override)) {
+    merged[key] = mergeObjects(base[key], value);
+  }
+  return merged;
+};
 
 // Simple frontmatter extraction (avoid dependency on skills-core for bootstrap)
 const extractAndStripFrontmatter = (content) => {
@@ -20,53 +42,57 @@ const extractAndStripFrontmatter = (content) => {
   const frontmatterStr = match[1];
   const body = match[2];
   const frontmatter = {};
+  const stack = [{ indent: -1, value: frontmatter }];
 
   for (const line of frontmatterStr.split('\n')) {
-    const colonIdx = line.indexOf(':');
-    if (colonIdx > 0) {
-      const key = line.slice(0, colonIdx).trim();
-      const value = line.slice(colonIdx + 1).trim().replace(/^["']|["']$/g, '');
-      frontmatter[key] = value;
+    if (!line.trim() || line.trim().startsWith('#')) continue;
+
+    const indent = line.match(/^\s*/)?.[0].length ?? 0;
+    const trimmed = line.trim();
+    const colonIdx = trimmed.indexOf(':');
+    if (colonIdx <= 0) continue;
+
+    const key = stripQuotes(trimmed.slice(0, colonIdx).trim());
+    const value = trimmed.slice(colonIdx + 1).trim();
+
+    while (stack.length > 1 && indent <= stack[stack.length - 1].indent) stack.pop();
+
+    const parent = stack[stack.length - 1].value;
+    if (!value) {
+      parent[key] = {};
+      stack.push({ indent, value: parent[key] });
+      continue;
     }
+
+    parent[key] = parseScalar(value);
   }
 
   return { frontmatter, content: body };
 };
 
-// Normalize a path: trim whitespace, expand ~, resolve to absolute
-const normalizePath = (p, homeDir) => {
-  if (!p || typeof p !== 'string') return null;
-  let normalized = p.trim();
-  if (!normalized) return null;
-  if (normalized.startsWith('~/')) {
-    normalized = path.join(homeDir, normalized.slice(2));
-  } else if (normalized === '~') {
-    normalized = homeDir;
-  }
-  return path.resolve(normalized);
+const readMarkdownEntry = (filepath) => {
+  if (!fs.existsSync(filepath)) return null;
+  return extractAndStripFrontmatter(fs.readFileSync(filepath, 'utf8'));
 };
 
 const shouldInjectForAgent = (options, agent) => {
   if (!agent) return false;
+  if (agent === SUPERPOWERS_AGENT) return false;
   const inject = options?.oc?.inject;
   if (!inject || typeof inject !== 'object') return false;
   return inject[agent] === true;
 };
 
 export const SuperpowersPlugin = async ({ client, directory }, options = {}) => {
-  const homeDir = os.homedir();
   const superpowersSkillsDir = path.resolve(__dirname, '../../skills');
-  const envConfigDir = normalizePath(process.env.OPENCODE_CONFIG_DIR, homeDir);
-  const configDir = envConfigDir || path.join(homeDir, '.config/opencode');
+  const superpowersAgentPath = path.resolve(__dirname, '../agents/superpowers.md');
 
   // Helper to generate bootstrap content
   const getBootstrapContent = () => {
     // Try to load using-superpowers skill
     const skillPath = path.join(superpowersSkillsDir, 'using-superpowers', 'SKILL.md');
-    if (!fs.existsSync(skillPath)) return null;
-
-    const fullContent = fs.readFileSync(skillPath, 'utf8');
-    const { content } = extractAndStripFrontmatter(fullContent);
+    const skill = readMarkdownEntry(skillPath);
+    if (!skill) return null;
 
     const toolMapping = `**Tool Mapping for OpenCode:**
 When skills reference tools you don't have, substitute OpenCode equivalents:
@@ -82,10 +108,20 @@ You have superpowers.
 
 **IMPORTANT: The using-superpowers skill content is included below. It is ALREADY LOADED - you are currently following it. Do NOT use the skill tool to load "using-superpowers" again - that would be redundant.**
 
-${content}
+${skill.content}
 
 ${toolMapping}
 </EXTREMELY_IMPORTANT>`;
+  };
+
+  const getSuperpowersAgent = () => {
+    const agent = readMarkdownEntry(superpowersAgentPath);
+    if (!agent) return null;
+
+    return {
+      ...agent.frontmatter,
+      prompt: agent.content.trim(),
+    };
   };
 
   return {
@@ -99,9 +135,27 @@ ${toolMapping}
       if (!config.skills.paths.includes(superpowersSkillsDir)) {
         config.skills.paths.push(superpowersSkillsDir);
       }
+
+      const bootstrap = getBootstrapContent();
+      const superpowersAgent = getSuperpowersAgent();
+      if (!superpowersAgent) return;
+
+      config.agent = config.agent || {};
+      const existing = isPlainObject(config.agent[SUPERPOWERS_AGENT]) ? config.agent[SUPERPOWERS_AGENT] : {};
+      const extraPrompt = typeof existing.prompt === 'string' ? existing.prompt.trim() : '';
+
+      config.agent[SUPERPOWERS_AGENT] = {
+        ...superpowersAgent,
+        ...existing,
+        permission: mergeObjects(superpowersAgent.permission || {}, existing.permission || {}),
+        options: mergeObjects(superpowersAgent.options || {}, existing.options || {}),
+        prompt: [superpowersAgent.prompt, extraPrompt, bootstrap].filter(Boolean).join('\n\n'),
+      };
     },
 
-    // Inject bootstrap into the first user message of each session.
+    // Inject bootstrap into configured non-superpowers agents.
+    // The native @superpowers agent gets bootstrap through its prompt so the
+    // first user message stays clean for OpenCode's automatic title generation.
     // Using a user message instead of a system message avoids:
     //   1. Token bloat from system messages repeated every turn (#750)
     //   2. Multiple system messages breaking Qwen and other models (#894)

@@ -90,10 +90,11 @@ To pin a specific version, use a branch or tag:
 
 ## How It Works
 
-The plugin does two things:
+The plugin does three things:
 
-1. **Injects bootstrap context** via the `experimental.chat.system.transform` hook, adding superpowers awareness to every conversation.
-2. **Registers the skills directory** via the `config` hook, so OpenCode discovers all superpowers skills without symlinks or manual config.
+1. **Registers the skills directory** via the `config` hook, so OpenCode discovers all superpowers skills without symlinks or manual config.
+2. **Registers a native `superpowers` agent** via the same `config` hook, with the Superpowers bootstrap baked into that agent's prompt.
+3. **Optionally injects bootstrap context** into other configured agents via the `experimental.chat.messages.transform` hook.
 
 ### Tool Mapping
 
@@ -120,8 +121,8 @@ Skills written for Claude Code are automatically adapted for OpenCode:
 
 ### Bootstrap not appearing
 
-1. Check OpenCode version supports `experimental.chat.system.transform` hook
-2. Restart OpenCode after config changes
+1. Restart OpenCode after install or config changes so the plugin can register the `superpowers` agent prompt
+2. If you rely on bootstrap injection for other agents, check your OpenCode version supports `experimental.chat.messages.transform`
 
 ## Getting Help
 
