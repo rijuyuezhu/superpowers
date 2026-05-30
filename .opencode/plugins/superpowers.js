@@ -168,7 +168,7 @@ ${toolMapping}
     },
 
     // Inject bootstrap into configured non-superpowers agents.
-    // The native @superpowers agent gets bootstrap through its prompt so the
+    // The native superpowers agent gets bootstrap through its prompt so the
     // first user message stays clean for OpenCode's automatic title generation.
     // Using a user message instead of a system message avoids:
     //   1. Token bloat from system messages repeated every turn (#750)
@@ -179,7 +179,8 @@ ${toolMapping}
     // arrays may need injection again, so getBootstrapContent() must not do
     // repeated disk work.
     'experimental.chat.messages.transform': async (_input, output) => {
-      const firstUser = output.messages.find(m => m.info.role === 'user');
+      const messages = Array.isArray(output.messages) ? output.messages : [];
+      const firstUser = messages.find(m => m.info.role === 'user');
       if (!firstUser || !firstUser.parts.length) return;
       if (!shouldInjectForAgent(options, firstUser.info.agent)) return;
 
@@ -187,7 +188,7 @@ ${toolMapping}
       // This prevents double injection when OpenCode passes an already
       // transformed in-memory message array through the hook again.
       const bootstrap = getBootstrapContent();
-      if (!bootstrap || !output.messages.length) return;
+      if (!bootstrap) return;
       if (firstUser.parts.some(p => p.type === 'text' && p.text.includes('EXTREMELY_IMPORTANT'))) return;
 
       const ref = firstUser.parts[0];

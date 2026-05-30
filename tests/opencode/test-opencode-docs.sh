@@ -9,18 +9,18 @@ README_DOC="$REPO_ROOT/docs/README.opencode.md"
 echo "=== Test: OpenCode Docs ==="
 
 for doc in "$INSTALL_DOC" "$README_DOC"; do
-	if ! grep -q '@superpowers' "$doc"; then
-		echo "  [FAIL] $doc does not mention the explicit @superpowers agent"
+	if ! grep -Eq 'superpowers.*agent|agent.*superpowers' "$doc"; then
+		echo "  [FAIL] $doc does not mention the explicit superpowers agent"
 		exit 1
 	fi
 
-	if ! grep -q '"superpowers": true' "$doc"; then
-		echo "  [FAIL] $doc does not show scoped bootstrap injection config"
+	if ! grep -q 'built-in agents are not bootstrapped by default' "$doc"; then
+		echo "  [FAIL] $doc does not explain that built-in agents are not bootstrapped by default"
 		exit 1
 	fi
 
-	if ! grep -Eq '"skill": \{|permission:' "$doc"; then
-		echo "  [FAIL] $doc does not show permission.skill configuration"
+	if ! grep -q '"inject"' "$doc"; then
+		echo "  [FAIL] $doc does not show optional scoped bootstrap injection config"
 		exit 1
 	fi
 
@@ -35,4 +35,4 @@ for doc in "$INSTALL_DOC" "$README_DOC"; do
 	fi
 done
 
-echo "  [PASS] OpenCode docs describe explicit superpowers-agent usage"
+echo "  [PASS] OpenCode docs describe explicit superpowers agent usage"

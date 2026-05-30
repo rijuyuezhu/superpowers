@@ -31,10 +31,10 @@ output=$(timeout 60s opencode agent list 2>&1) || {
 	echo "  [WARN] OpenCode returned non-zero exit code: $exit_code"
 }
 
-if echo "$output" | grep -Fq 'superpowers (subagent)'; then
-	echo "  [PASS] OpenCode exposes the superpowers subagent"
+if echo "$output" | grep -Fq 'superpowers (primary)'; then
+	echo "  [PASS] OpenCode exposes the superpowers primary agent"
 else
-	echo "  [FAIL] OpenCode did not list the superpowers subagent"
+	echo "  [FAIL] OpenCode did not list the superpowers primary agent"
 	echo "  Output was:"
 	echo "$output"
 	exit 1
@@ -43,7 +43,7 @@ fi
 echo ""
 echo "Test 2: Checking runtime permission entries for superpowers..."
 
-superpowers_block=$(printf '%s\n' "$output" | awk '/^superpowers \(subagent\)/{flag=1; print; next} /^[a-z].* \((primary|subagent)\)$/{if(flag){exit}} flag {print}')
+superpowers_block=$(printf '%s\n' "$output" | awk '/^superpowers \(primary\)/{flag=1; print; next} /^[a-z].* \((primary|subagent)\)$/{if(flag){exit}} flag {print}')
 
 if printf '%s\n' "$superpowers_block" | grep -A2 '"pattern": "using-superpowers"' | grep -q '"action": "allow"'; then
 	echo "  [PASS] Runtime permissions include using-superpowers allow"

@@ -47,7 +47,7 @@ while [[ $# -gt 0 ]]; do
 		echo "  test-bootstrap-caching.sh   Verify bootstrap content caching"
 		echo "  test-superpowers-agent.sh   Verify explicit superpowers agent boundaries"
 		echo "  test-bootstrap-transform.sh Verify agent-scoped bootstrap injection"
-		echo "  test-opencode-docs.sh       Verify OpenCode docs recommend @superpowers"
+		echo "  test-opencode-docs.sh       Verify OpenCode docs describe explicit superpowers usage"
 		echo "  test-tools.sh               Test runtime superpowers agent availability (integration)"
 		echo "  test-priority.sh            Test agent skill permissions (integration)"
 		exit 0

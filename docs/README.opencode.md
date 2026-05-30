@@ -12,10 +12,11 @@ Add superpowers to the `plugin` array in your `opencode.json` (global or project
 }
 ```
 
-Restart OpenCode. The plugin installs through OpenCode's plugin manager and
-registers all skills.
+Restart OpenCode. The plugin installs through OpenCode's plugin manager,
+registers all skills, and adds a dedicated `superpowers` primary agent.
 
-Verify by asking: "Tell me about your superpowers"
+Verify by selecting the `superpowers` agent and asking what Superpowers
+workflows are available. The built-in agents are not bootstrapped by default.
 
 OpenCode uses its own plugin install. If you also use Claude Code, Codex, or
 another harness, install Superpowers separately for each one.
@@ -39,6 +40,9 @@ Then follow the installation steps above.
 
 ## Usage
 
+Use the `superpowers` agent for Superpowers workflows. The built-in agents are
+left unchanged unless you explicitly opt them in.
+
 ### Finding Skills
 
 Use OpenCode's native `skill` tool to list all available skills:
@@ -51,6 +55,26 @@ use skill tool to list skills
 
 ```
 use skill tool to load superpowers/brainstorming
+```
+
+### Optional Agent Injection
+
+The `superpowers` agent gets the bootstrap through its agent prompt. If you
+explicitly want another agent to receive the bootstrap through the message
+transform hook, opt that agent in with plugin options:
+
+```json
+{
+  "plugin": [
+    ["superpowers@git+https://github.com/obra/superpowers.git", {
+      "oc": {
+        "inject": {
+          "build": true
+        }
+      }
+    }]
+  ]
+}
 ```
 
 ### Personal Skills

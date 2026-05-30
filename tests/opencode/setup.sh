@@ -39,20 +39,11 @@ cp "$REPO_ROOT/.opencode/agents/superpowers.md" "$OPENCODE_CONFIG_DIR/agents/sup
 mkdir -p "$OPENCODE_CONFIG_DIR/plugins"
 ln -sf "$SUPERPOWERS_PLUGIN_FILE" "$OPENCODE_CONFIG_DIR/plugins/superpowers.js"
 
-# Recommended OpenCode config for tests: explicit superpowers agent bootstrap
-# and skill access denied for the built-in agents.
+# Test config: load the plugin and deny skill access for the built-in agents.
 cat >"$OPENCODE_CONFIG_DIR/opencode.json" <<'EOF'
 {
   "$schema": "https://opencode.ai/config.json",
-  "plugin": [
-    ["file://__PLUGIN_FILE__", {
-      "oc": {
-        "inject": {
-          "superpowers": true
-        }
-      }
-    }]
-  ],
+  "plugin": ["file://__PLUGIN_FILE__"],
   "agent": {
     "build": { "permission": { "skill": { "*": "deny" } } },
     "plan": { "permission": { "skill": { "*": "deny" } } },

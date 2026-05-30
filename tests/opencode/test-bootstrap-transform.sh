@@ -24,24 +24,29 @@ const makeOutput = (agent) => ({
 });
 
 const noOptionsPlugin = await SuperpowersPlugin({ client: {}, directory: process.cwd() });
-const noOptionsOutput = makeOutput('superpowers');
+const noOptionsOutput = makeOutput('build');
 await noOptionsPlugin['experimental.chat.messages.transform']({}, noOptionsOutput);
 assert.equal(noOptionsOutput.messages[0].parts[0].text, 'hello', 'bootstrap should not inject without opt-in');
 
 const scopedPlugin = await SuperpowersPlugin(
   { client: {}, directory: process.cwd() },
-  { oc: { inject: { superpowers: true } } },
+  { oc: { inject: { build: true, superpowers: true } } },
 );
 
 const buildOutput = makeOutput('build');
 await scopedPlugin['experimental.chat.messages.transform']({}, buildOutput);
-assert.equal(buildOutput.messages[0].parts[0].text, 'hello', 'bootstrap should not inject into build');
+assert.notEqual(buildOutput.messages[0].parts[0].text, 'hello', 'bootstrap should inject into opted-in build');
+assert.match(buildOutput.messages[0].parts[0].text, /You have superpowers\./);
+assert.match(buildOutput.messages[0].parts[0].text, /TodoWrite/);
 
 const superpowersOutput = makeOutput('superpowers');
 await scopedPlugin['experimental.chat.messages.transform']({}, superpowersOutput);
-assert.notEqual(superpowersOutput.messages[0].parts[0].text, 'hello', 'bootstrap should inject into superpowers');
-assert.match(superpowersOutput.messages[0].parts[0].text, /You have superpowers\./);
-assert.match(superpowersOutput.messages[0].parts[0].text, /TodoWrite/);
+assert.equal(superpowersOutput.messages[0].parts[0].text, 'hello', 'superpowers agent should use prompt bootstrap, not message injection');
+
+const config = {};
+await scopedPlugin.config(config);
+assert.equal(config.agent.superpowers.mode, 'primary');
+assert.match(config.agent.superpowers.prompt, /You have superpowers\./);
 
 console.log('  [PASS] bootstrap transform is correctly gated');
 NODE

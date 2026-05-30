@@ -56,7 +56,7 @@ output=$(timeout 60s opencode agent list 2>&1) || {
 }
 
 build_block=$(printf '%s\n' "$output" | awk '/^build \(primary\)/{flag=1; print; next} /^[a-z].* \((primary|subagent)\)$/{if(flag){exit}} flag {print}')
-superpowers_block=$(printf '%s\n' "$output" | awk '/^superpowers \(subagent\)/{flag=1; print; next} /^[a-z].* \((primary|subagent)\)$/{if(flag){exit}} flag {print}')
+superpowers_block=$(printf '%s\n' "$output" | awk '/^superpowers \(primary\)/{flag=1; print; next} /^[a-z].* \((primary|subagent)\)$/{if(flag){exit}} flag {print}')
 
 if printf '%s\n' "$build_block" | grep -A2 '"permission": "skill"' | grep -q '"action": "deny"'; then
 	echo "  [PASS] build agent denies skill access"
